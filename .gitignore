@@ -1,0 +1,19 @@
+# terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+crash.log
+crash.*.log
+
+# go
+bin/
+*.exe
+*.test
+coverage.out
+
+# ambiente local
+.env
+.vscode/
+desktop.ini
