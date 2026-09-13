@@ -6,10 +6,12 @@ on:
     paths:
       - "services/evaluation-service/**"
       - ".github/workflows/evaluation-service.yml"
+      - ".golangci.yml"
   pull_request:
     paths:
       - "services/evaluation-service/**"
       - ".github/workflows/evaluation-service.yml"
+      - ".golangci.yml"
 
 permissions:
   contents: read
@@ -84,7 +86,7 @@ jobs:
 
       # relatorio informativo, nao bloqueia
       - name: inventario de vulnerabilidades
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: services/evaluation-service
@@ -93,7 +95,7 @@ jobs:
 
       # portao do enunciado: dependencia com vulnerabilidade CRITICA derruba o pipeline
       - name: portao de critico
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: services/evaluation-service
@@ -123,7 +125,7 @@ jobs:
 
       # segundo portao: a imagem pronta e escaneada antes de existir no registro
       - name: scan da imagem
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: image
           image-ref: local/${{ env.SERVICE }}:${{ github.sha }}
