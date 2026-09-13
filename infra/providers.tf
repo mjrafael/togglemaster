@@ -6,6 +6,18 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 6.0"
     }
+
+    # usado só para ler o certificado do emissor OIDC do cluster e habilitar IRSA
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.0"
+    }
+
+    # gera as senhas dos bancos, que nunca passam por arquivo do repositório
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
   }
 
   # mesmo bucket do bootstrap, chave diferente: o destroy do laboratório não alcança o state do bucket

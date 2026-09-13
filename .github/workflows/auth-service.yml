@@ -1,0 +1,158 @@
+﻿name: auth-service
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "services/auth-service/**"
+      - ".github/workflows/auth-service.yml"
+  pull_request:
+    paths:
+      - "services/auth-service/**"
+      - ".github/workflows/auth-service.yml"
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  SERVICE: auth-service
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: togglemaster-dev/auth-service
+
+jobs:  build:
+    name: build e teste
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/auth-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache-dependency-path: services/auth-service/go.sum
+
+      - run: go build ./...
+
+      - run: go vet ./...
+
+      - run: go test ./...
+
+  lint:
+    name: analise estatica
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache-dependency-path: services/auth-service/go.sum
+
+      - uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.1.6
+          working-directory: services/auth-service
+          args: --timeout=5m
+
+  sast:
+    name: SAST com gosec
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/auth-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache-dependency-path: services/auth-service/go.sum
+
+      - run: go install github.com/securego/gosec/v2/cmd/gosec@v2.21.4
+
+      - run: gosec -severity high -confidence medium ./...
+  sca:
+    name: SCA com Trivy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # relatorio informativo, nao bloqueia
+      - name: inventario de vulnerabilidades
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          scan-type: fs
+          scan-ref: services/auth-service
+          severity: HIGH,CRITICAL
+          exit-code: "0"
+
+      # portao do enunciado: dependencia com vulnerabilidade CRITICA derruba o pipeline
+      - name: portao de critico
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          scan-type: fs
+          scan-ref: services/auth-service
+          severity: CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+
+  image:
+    name: imagem e push
+    needs: [build, lint, sast, sca]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # credencial temporaria por OIDC, sem access key guardada no repositorio
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: build da imagem
+        run: docker build -t local/${{ env.SERVICE }}:${{ github.sha }} services/${{ env.SERVICE }}
+
+      # segundo portao: a imagem pronta e escaneada antes de existir no registro
+      - name: scan da imagem
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          scan-type: image
+          image-ref: local/${{ env.SERVICE }}:${{ github.sha }}
+          severity: CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+
+      - name: push para o ECR
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          docker tag local/${SERVICE}:${GITHUB_SHA} ${REGISTRY}/${ECR_REPOSITORY}:${GITHUB_SHA}
+          docker push ${REGISTRY}/${ECR_REPOSITORY}:${GITHUB_SHA}
+
+      - name: atualiza a tag no repositorio de gitops
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          DEPLOY_KEY: ${{ secrets.GITOPS_DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+
+          git clone git@github.com:mjrafael/togglemaster-gitops.git /tmp/gitops
+          cd /tmp/gitops
+
+          sed -i "s#image: .*/${ECR_REPOSITORY}:.*#image: ${REGISTRY}/${ECR_REPOSITORY}:${GITHUB_SHA}#" apps/${SERVICE}/deployment.yaml
+
+          git config user.name "togglemaster ci"
+          git config user.email "ci@togglemaster.invalid"
+          git add apps/${SERVICE}/deployment.yaml
+          git diff --cached --quiet || git commit -m "atualiza ${SERVICE} para ${GITHUB_SHA}"
+          git push

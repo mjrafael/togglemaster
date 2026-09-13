@@ -17,3 +17,6 @@ coverage.out
 .env
 .vscode/
 desktop.ini
+
+__pycache__/
+*.pyc
