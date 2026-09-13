@@ -26,9 +26,17 @@ data "aws_iam_policy_document" "assume_role" {
 
     # sem esta condição qualquer repositório do GitHub assumiria a role
     condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:repository"
+      values   = [var.github_repository]
+    }
+
+    # o sub do GitHub hoje carrega o id numérico do dono e do repositório,
+    # no formato repo:dono@123/repo@456:ref:..., por isso os curingas no meio
+    condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repository}:*"]
+      values   = ["repo:${split("/", var.github_repository)[0]}@*/${split("/", var.github_repository)[1]}@*:ref:refs/heads/${var.github_branch}"]
     }
   }
 }
