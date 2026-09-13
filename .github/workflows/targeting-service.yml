@@ -1,4 +1,4 @@
-﻿name: targeting-service
+name: targeting-service
 
 on:
   push:

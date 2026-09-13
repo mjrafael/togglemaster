@@ -1,4 +1,4 @@
-﻿name: evaluation-service
+name: evaluation-service
 
 on:
   push:

@@ -1,4 +1,4 @@
-﻿name: analytics-service
+name: analytics-service
 
 on:
   push:
