@@ -20,7 +20,8 @@ env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY: togglemaster-dev/analytics-service
 
-jobs:  build:
+jobs:
+  build:
     name: build e teste
     runs-on: ubuntu-latest
     defaults:
@@ -74,6 +75,7 @@ jobs:  build:
       - run: pip install bandit
 
       - run: bandit -r . -ll
+
   sca:
     name: SCA com Trivy
     runs-on: ubuntu-latest
