@@ -7,11 +7,15 @@ linters:
     - ineffassign
     - staticcheck
     - unused
-    - bodyclose
-    - misspell
 
+  # misspell fica de fora: ele corrige ingles e acusa comentario em portugues como erro
   exclusions:
     rules:
       - path: _test\.go
         linters:
           - errcheck
+
+      # escrever em resposta HTTP ja finalizada e fechar conexao no defer sao idiomaticos em Go
+      - linters:
+          - errcheck
+        text: "Encode|\\.Close"

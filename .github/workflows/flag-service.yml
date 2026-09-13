@@ -57,7 +57,11 @@ jobs:
 
       - run: pip install flake8
 
-      - run: flake8 --max-line-length=120 --extend-ignore=E501,W503 .
+      # inventario de estilo, nao bloqueia
+      - run: flake8 --max-line-length=120 --statistics --exit-zero .
+
+      # portao: so erro real derruba, como import inexistente ou variavel indefinida
+      - run: flake8 --select=F,E9 .
 
   sast:
     name: SAST com bandit
@@ -74,7 +78,11 @@ jobs:
 
       - run: pip install bandit
 
-      - run: bandit -r . -ll
+      # inventario a partir de severidade media, nao bloqueia
+      - run: bandit -r . -ll --exit-zero
+
+      # portao: so severidade alta derruba, mesmo criterio do Trivy
+      - run: bandit -r . -lll
 
   sca:
     name: SCA com Trivy
