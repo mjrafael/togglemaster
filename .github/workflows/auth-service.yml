@@ -111,6 +111,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: diagnostico do token oidc
+        run: |
+          TOKEN=$(curl -sLS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r '.value')
+          echo "$TOKEN" | cut -d. -f2 | base64 -d 2>/dev/null | jq '{sub, aud, iss, repository}' || true
+          echo "tamanho do arn no secret: ${#ROLE}"
+        env:
+          ROLE: ${{ secrets.AWS_ROLE_ARN }}
+
       # credencial temporaria por OIDC, sem access key guardada no repositorio
       - uses: aws-actions/configure-aws-credentials@v4
         with:

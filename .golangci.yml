@@ -18,4 +18,9 @@ linters:
       # escrever em resposta HTTP ja finalizada e fechar conexao no defer sao idiomaticos em Go
       - linters:
           - errcheck
-        text: "Encode|\\.Close"
+        text: "Encode|\\.Close|\\.Err"
+
+      # ioutil esta deprecado desde o Go 1.19, mas e uso legado do codigo fornecido e nao e defeito
+      - linters:
+          - staticcheck
+        text: "SA1019"
