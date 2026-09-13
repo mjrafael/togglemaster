@@ -1,6 +1,8 @@
 name: targeting-service
 
 on:
+  # permite reexecutar depois de recriar a infraestrutura, sem precisar de commit novo
+  workflow_dispatch:
   push:
     branches: [main]
     paths:

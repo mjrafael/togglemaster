@@ -6,6 +6,9 @@ resource "aws_ecr_repository" "this" {
   # tag imutável porque o manifesto de GitOps aponta para o commit hash e precisa sempre significar o mesmo binário
   image_tag_mutability = "IMMUTABLE"
 
+  # sem isto o destroy falha em repositório que tem imagem, e o laboratório fica com recurso órfão cobrando
+  force_delete = true
+
   image_scanning_configuration {
     scan_on_push = true
   }
