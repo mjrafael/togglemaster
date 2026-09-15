@@ -108,7 +108,8 @@ jobs:
   image:
     name: imagem e push
     needs: [build, lint, sast, sca]
-    if: github.event_name == 'push'
+    # publica em push e em disparo manual, nunca em pull request
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

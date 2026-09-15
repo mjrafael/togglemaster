@@ -11,7 +11,23 @@ Write-Host "criando o namespace argocd"
 kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
 
 Write-Host "instalando o ArgoCD $versao"
-kubectl apply -n argocd -f $manifesto
+
+# baixa antes de aplicar: o kubectl puxando direto da URL falha quando a rede oscila,
+# e o erro que ele devolve fala de CRD ausente, que manda investigar o lado errado
+# curl.exe em vez de Invoke-WebRequest: o PowerShell 5.1 negocia TLS 1.0 por padrão e o GitHub recusa
+$local = Join-Path $env:TEMP "argocd-$versao.yaml"
+if (-not (Test-Path $local) -or (Get-Item $local).Length -lt 100000) {
+    # -4 força IPv4: a rota IPv6 até o GitHub derruba a conexão nesta rede
+    curl.exe -4 -sSL --retry 3 --max-time 180 -o $local $manifesto
+}
+
+if (-not (Test-Path $local) -or (Get-Item $local).Length -lt 100000) {
+    Write-Host "o download do manifesto falhou"
+    exit 1
+}
+
+# server-side porque o manifesto passa do limite de anotação do apply tradicional
+kubectl apply -n argocd --server-side -f $local
 
 Write-Host "`naguardando o servidor ficar pronto (pode levar 3 minutos)"
 kubectl wait --for=condition=available --timeout=420s deployment/argocd-server -n argocd
