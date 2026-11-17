@@ -6,6 +6,11 @@ from psycopg2.extras import RealDictCursor, Json
 from psycopg2.pool import SimpleConnectionPool
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
+from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
+
+# a auto-instrumentacao procura o pacote psycopg2 e o projeto usa o psycopg2-binary, entao ela
+# pula o banco. ligado aqui, antes do pool, para as consultas ao RDS aparecerem no trace
+Psycopg2Instrumentor().instrument(skip_dep_check=True)
 from functools import wraps
 import logging
 
