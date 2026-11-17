@@ -16,4 +16,6 @@ USER appuser
 
 EXPOSE 8002
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8002", "--workers", "2", "app:app"]
+# o opentelemetry-instrument sobe o SDK e instrumenta flask, requests e o driver do banco antes do app importar
+# um worker com threads: o SDK do OTel nao lida bem com varios processos filhos do gunicorn
+CMD ["opentelemetry-instrument", "gunicorn", "--bind", "0.0.0.0:8002", "--workers", "1", "--threads", "4", "app:app"]

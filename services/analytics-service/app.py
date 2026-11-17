@@ -9,6 +9,7 @@ import boto3
 from botocore.exceptions import NoCredentialsError, ClientError
 from flask import Flask, jsonify
 from dotenv import load_dotenv
+from opentelemetry import propagate, trace
 
 # Configura o logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -43,8 +44,37 @@ except Exception as e:
 
 # --- SQS Worker ---
 
+# o worker roda numa thread fora de qualquer requisição HTTP, então nenhuma instrumentação
+# automática abre o span de consumo. ele é criado aqui, como filho do span que o
+# evaluation-service gravou nos atributos da mensagem
+tracer = trace.get_tracer("analytics-service")
+
+
+def contexto_da_mensagem(message):
+    portador = {
+        chave: atributo.get("StringValue", "")
+        for chave, atributo in message.get("MessageAttributes", {}).items()
+    }
+    return propagate.extract(portador)
+
+
 def process_message(message):
     """ Processa uma única mensagem SQS e a insere no DynamoDB """
+    fila = SQS_QUEUE_URL.rsplit("/", 1)[-1]
+    with tracer.start_as_current_span(
+        f"{fila} process",
+        context=contexto_da_mensagem(message),
+        kind=trace.SpanKind.CONSUMER,
+        attributes={
+            "messaging.system": "aws_sqs",
+            "messaging.destination.name": fila,
+            "messaging.message.id": message["MessageId"],
+        },
+    ):
+        _process_message(message)
+
+
+def _process_message(message):
     try:
         log.info(f"Processando mensagem ID: {message['MessageId']}")
         body = json.loads(message['Body'])
@@ -94,7 +124,9 @@ def sqs_worker_loop():
             response = sqs_client.receive_message(
                 QueueUrl=SQS_QUEUE_URL,
                 MaxNumberOfMessages=10,  # Processa em lotes de até 10
-                WaitTimeSeconds=20
+                WaitTimeSeconds=20,
+                # sem isso o SQS não devolve o traceparent que o evaluation-service mandou
+                MessageAttributeNames=["All"],
             )
             
             messages = response.get('Messages', [])

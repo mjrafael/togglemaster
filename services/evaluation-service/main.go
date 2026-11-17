@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // Contexto global para o Redis
@@ -20,6 +21,7 @@ var ctx = context.Background()
 // App struct para injeção de dependência
 type App struct {
 	RedisClient         *redis.Client
+	RedisAddr           string
 	SqsSvc              *sqs.SQS
 	SqsQueueURL         string
 	HttpClient          *http.Client
@@ -29,6 +31,9 @@ type App struct {
 
 func main() {
 	_ = godotenv.Load() // Carrega .env para dev local
+
+	encerrarTelemetria := iniciarTelemetria(ctx)
+	defer func() { _ = encerrarTelemetria(ctx) }()
 
 	// --- Configuração ---
 	port := os.Getenv("PORT")
@@ -86,13 +91,17 @@ func main() {
 	}
 
 	// Cliente HTTP (com timeout)
+	// o transport do otelhttp cria o span de cliente e injeta o traceparent em cada chamada,
+	// é ele que liga este serviço ao flag-service e ao targeting-service no mesmo trace
 	httpClient := &http.Client{
-		Timeout: 5 * time.Second,
+		Timeout:   5 * time.Second,
+		Transport: otelhttp.NewTransport(http.DefaultTransport),
 	}
 
 	// Cria a instância da App
 	app := &App{
 		RedisClient:         rdb,
+		RedisAddr:           opt.Addr,
 		SqsSvc:              sqsSvc,
 		SqsQueueURL:         sqsQueueURL,
 		HttpClient:          httpClient,
@@ -105,8 +114,14 @@ func main() {
 	mux.HandleFunc("/health", app.healthHandler)
 	mux.HandleFunc("/evaluate", app.evaluationHandler)
 
+	handler := otelhttp.NewHandler(mux, "evaluation-service",
+		otelhttp.WithFilter(func(r *http.Request) bool { return r.URL.Path != "/health" }),
+		otelhttp.WithSpanNameFormatter(func(_ string, r *http.Request) string { return r.Method + " " + r.URL.Path }),
+	)
+
 	log.Printf("Serviço de Avaliação (Go) rodando na porta %s", port)
-	if err := http.ListenAndServe(":"+port, mux); err != nil {
+	srv := &http.Server{Addr: ":" + port, Handler: handler, ReadHeaderTimeout: 10 * time.Second}
+	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
 }

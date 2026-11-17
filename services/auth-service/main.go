@@ -1,13 +1,16 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/joho/godotenv"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // App struct (para injeção de dependência)
@@ -19,6 +22,9 @@ type App struct {
 func main() {
 	// Carrega o .env para desenvolvimento local. Em produção, isso não fará nada.
 	_ = godotenv.Load()
+
+	encerrarTelemetria := iniciarTelemetria(context.Background())
+	defer func() { _ = encerrarTelemetria(context.Background()) }()
 
 	// --- Configuração ---
 	port := os.Getenv("PORT")
@@ -58,9 +64,17 @@ func main() {
 	// Endpoints de "admin" para criar/gerenciar chaves
 	// Eles são protegidos pelo middleware de autenticação
 	mux.Handle("/admin/keys", app.masterKeyAuthMiddleware(http.HandlerFunc(app.createKeyHandler)))
+	mux.Handle("/admin/falha", app.masterKeyAuthMiddleware(http.HandlerFunc(app.falhaHandler)))
+
+	// o otelhttp fica por fora do middleware de falha para que o 500 simulado também vire span com erro
+	handler := otelhttp.NewHandler(middlewareFalha(mux), "auth-service",
+		otelhttp.WithFilter(func(r *http.Request) bool { return r.URL.Path != "/health" }),
+		otelhttp.WithSpanNameFormatter(func(_ string, r *http.Request) string { return r.Method + " " + r.URL.Path }),
+	)
 
 	log.Printf("Serviço de Autenticação (Go) rodando na porta %s", port)
-	if err := http.ListenAndServe(":"+port, mux); err != nil {
+	srv := &http.Server{Addr: ":" + port, Handler: handler, ReadHeaderTimeout: 10 * time.Second}
+	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
 }
