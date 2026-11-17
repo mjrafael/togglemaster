@@ -27,12 +27,19 @@ curl -s -X POST http://auth-service:8001/admin/keys -H 'Authorization: Bearer $m
 
 $chave = ($r | ConvertFrom-Json).key
 
+# remove o que possa ter sobrado de um ensaio anterior, para a criacao nao falhar por duplicidade
+Invocar "limpando execucao anterior, se houver" @"
+curl -s -o /dev/null -w 'flag: %{http_code}\n' -X DELETE http://flag-service:8002/flags/$flag -H 'Authorization: Bearer $chave'
+"@ | Out-Null
+
 Invocar "criando a flag $flag no flag-service" @"
 curl -s -X POST http://flag-service:8002/flags -H 'Authorization: Bearer $chave' -H 'Content-Type: application/json' -d '{\"name\":\"$flag\",\"description\":\"novo dashboard\",\"is_enabled\":true}'
 "@ | Out-Null
 
-Invocar "criando a regra de 50 por cento no targeting-service" @"
-curl -s -X POST http://targeting-service:8003/rules -H 'Authorization: Bearer $chave' -H 'Content-Type: application/json' -d '{\"flag_name\":\"$flag\",\"is_enabled\":true,\"rules\":{\"type\":\"PERCENTAGE\",\"value\":50}}'
+# o -f faz o curl retornar codigo de erro em resposta HTTP 4xx, sem ele o fallback nunca dispara.
+# o targeting-service nao expoe DELETE, entao a regra existente e atualizada por PUT.
+Invocar "criando ou atualizando a regra de 50 por cento no targeting-service" @"
+curl -sf -X POST http://targeting-service:8003/rules -H 'Authorization: Bearer $chave' -H 'Content-Type: application/json' -d '{\"flag_name\":\"$flag\",\"is_enabled\":true,\"rules\":{\"type\":\"PERCENTAGE\",\"value\":50}}' || curl -s -X PUT http://targeting-service:8003/rules/$flag -H 'Authorization: Bearer $chave' -H 'Content-Type: application/json' -d '{\"is_enabled\":true,\"rules\":{\"type\":\"PERCENTAGE\",\"value\":50}}'
 "@ | Out-Null
 
 # um curl por usuário em vez de laço: o laço do shell se perde na passagem de argumentos pelo PowerShell

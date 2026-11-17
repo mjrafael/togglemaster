@@ -33,7 +33,8 @@ Write-Host "`naguardando o servidor ficar pronto (pode levar 3 minutos)"
 kubectl wait --for=condition=available --timeout=420s deployment/argocd-server -n argocd
 
 Write-Host "`nregistrando as Applications"
-kubectl apply -f C:\vs_code_projects\fiap\togglemaster-gitops\argocd\applications.yaml
+# a pasta inteira: as cinco aplicacoes e, desde a Fase 4, a stack de observabilidade
+kubectl apply -f (Join-Path $PSScriptRoot "..\..\togglemaster-gitops\argocd")
 
 Write-Host "`npods do argocd"
 kubectl get pods -n argocd

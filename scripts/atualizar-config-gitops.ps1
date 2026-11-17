@@ -7,7 +7,8 @@
 
 $ErrorActionPreference = "Continue"
 
-$gitops = "C:\vs_code_projects\fiap\togglemaster-gitops"
+# os dois repositórios ficam lado a lado na mesma pasta
+$gitops = Join-Path $PSScriptRoot "..\..\togglemaster-gitops"
 $regiao = "us-east-1"
 
 $cache = terraform -chdir=infra output -raw cache_endpoint
