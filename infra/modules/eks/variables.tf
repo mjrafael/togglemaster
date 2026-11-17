@@ -19,10 +19,12 @@ variable "node_instance_type" {
   default     = "t3.medium"
 }
 
+# 3 nós desde a Fase 4: a stack de observabilidade soma uns 2,5 GB de memória e o t3.medium
+# aceita só 17 pods por nó, limite que os daemonsets do collector e do node-exporter apertam
 variable "node_desired_size" {
   description = "quantidade de nós em regime normal"
   type        = number
-  default     = 2
+  default     = 3
 }
 
 variable "node_min_size" {
@@ -34,5 +36,5 @@ variable "node_min_size" {
 variable "node_max_size" {
   description = "máximo de nós"
   type        = number
-  default     = 3
+  default     = 4
 }
