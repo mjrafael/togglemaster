@@ -38,6 +38,11 @@ if ($LASTEXITCODE -eq 0 -and $bruto) {
     }
 }
 
+# chave vazia derruba o provisionamento do contact point no grafana
+foreach ($campo in @("newrelic_license_key", "pagerduty_integration_key")) {
+    if (-not $chaves.$campo) { $chaves.$campo = "pendente" }
+}
+
 Aplicar-Secret "newrelic" @{ "license-key" = $chaves.newrelic_license_key }
 
 # se o secret ja existe, reaproveita o token e a senha: trocar a cada execucao derrubaria o runbook
