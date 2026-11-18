@@ -81,8 +81,7 @@ foreach ($s in $servicos) {
 Etapa 8 "chave de servico do evaluation"
 & "$PSScriptRoot\emitir-chave-de-servico.ps1"
 
-Etapa 9 "limpando dados de ensaios anteriores"
-& "$PSScriptRoot\limpar-dados-demo.ps1"
+# sem limpeza aqui: o apply recria DynamoDB e RDS vazios, e o gerador de trafego ja escreve desde a etapa 7
 
 Etapa "9b" "flags da demonstracao e stack de observabilidade"
 & "$PSScriptRoot\preparar-demo.ps1"

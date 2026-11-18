@@ -12,7 +12,10 @@ $flag = "enable-new-dashboard"
 
 Write-Host "removendo os eventos do DynamoDB"
 
+# o gerador de trafego da fase 4 grava eventos sem parar, entao o total nunca chega a zero
+$passada = 0
 do {
+    $passada++
     $ids = @(aws dynamodb scan --table-name $tabela --query "Items[].event_id.S" --output text 2>$null) -split "`t" | Where-Object { $_ }
 
     foreach ($id in $ids) {
@@ -21,7 +24,7 @@ do {
 
     $restantes = aws dynamodb scan --table-name $tabela --select COUNT --query "Count" --output text 2>$null
     Write-Host "  restantes: $restantes"
-} while ([int]$restantes -gt 0)
+} while ([int]$restantes -gt 0 -and $passada -lt 3)
 
 Write-Host "`nremovendo a flag de ensaios anteriores"
 
