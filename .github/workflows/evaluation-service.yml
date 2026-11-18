@@ -162,4 +162,11 @@ jobs:
           git config user.email "ci@togglemaster.invalid"
           git add apps/${SERVICE}/deployment.yaml
           git diff --cached --quiet || git commit -m "atualiza ${SERVICE} para ${GITHUB_SHA}"
-          git push
+
+          # os cinco pipelines terminam juntos na reconstrucao e disputam o mesmo push
+          for tentativa in 1 2 3 4 5; do
+            git push && break
+            [ "$tentativa" = 5 ] && exit 1
+            sleep $((tentativa * 3))
+            git pull --rebase
+          done

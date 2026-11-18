@@ -155,7 +155,7 @@ Verificar "Loki pronto" ($r -match "200") "codigo: $r"
 $r = NoCluster "curl -s --max-time 15 -G http://monitoramento-prometheus.observabilidade.svc:9090/api/v1/query --data-urlencode 'query=count(traces_span_metrics_calls_total)'"
 Verificar "Prometheus recebe as metricas de span do Collector" ($r -match '"value":\[[0-9.]+,"[1-9]') "resposta: $r"
 
-$r = NoCluster "curl -s --max-time 15 -G http://loki.observabilidade.svc:3100/loki/api/v1/query --data-urlencode 'query=count_over_time({k8s_namespace_name=\`"togglemaster\`"}[5m])'"
+$r = NoCluster "curl -s --max-time 15 -G http://loki.observabilidade.svc:3100/loki/api/v1/query --data-urlencode 'query=sum(count_over_time({k8s_namespace_name=\`"togglemaster\`"}[5m]))'"
 Verificar "Loki recebe os logs do togglemaster" ($r -match '"status":"success"' -and $r -match '"value"') "resposta: $r"
 
 $nr = kubectl get secret newrelic -n $obs -o jsonpath="{.data.license-key}" 2>$null

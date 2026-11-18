@@ -37,7 +37,8 @@ data:
 
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 
-foreach ($servico in @("evaluation-service", "analytics-service")) {
+# o configmap e compartilhado, mas so a application do analytics o gerencia: duas donas ficam brigando no argocd
+foreach ($servico in @("analytics-service")) {
     $destino = "$gitops\apps\$servico\configmap.yaml"
     [System.IO.File]::WriteAllText($destino, $configmap.Replace("`r`n", "`n") + "`n", $utf8)
     Write-Host "escrito $destino"
