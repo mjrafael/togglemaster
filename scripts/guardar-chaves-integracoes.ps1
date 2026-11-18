@@ -18,9 +18,20 @@ function Ler-Segredo($rotulo) {
     finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr) }
 }
 
-$newrelic = Ler-Segredo "New Relic, license key (INGEST - LICENSE)"
-$pagerduty = Ler-Segredo "PagerDuty, integration key do servico (Events API v2)"
-$discord = Ler-Segredo "Discord, URL do webhook do canal"
+# enter vazio mantem o valor ja gravado, para trocar uma chave sem redigitar as outras
+$atual = $null
+$texto = aws secretsmanager get-secret-value --secret-id $nome --region $regiao --query SecretString --output text 2>$null
+if ($LASTEXITCODE -eq 0 -and $texto) { $atual = $texto | ConvertFrom-Json }
+
+$newrelic = Ler-Segredo "New Relic, license key (INGEST - LICENSE) [enter mantem]"
+$pagerduty = Ler-Segredo "PagerDuty, integration key do servico (Events API v2) [enter mantem]"
+$discord = Ler-Segredo "Discord, URL do webhook do canal [enter mantem]"
+
+if ($atual) {
+    if (-not $newrelic) { $newrelic = $atual.newrelic_license_key }
+    if (-not $pagerduty) { $pagerduty = $atual.pagerduty_integration_key }
+    if (-not $discord) { $discord = $atual.discord_webhook_url }
+}
 
 if (-not $discord.StartsWith("https://discord.com/api/webhooks/")) {
     Write-Host "a URL do Discord nao tem o formato esperado (https://discord.com/api/webhooks/...)" -ForegroundColor Red
